@@ -2,37 +2,6 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" 
 	android:key="PageTurnerState">
 	
-	<PreferenceCategory
-                android:title="@string/pref_sync_settings"> 
-                 
-	<EditTextPreference
-	            android:key="email"
-	            android:title="@string/pref_email"
-	            android:summary="@string/pref_email_summary"
-	            android:dialogTitle="@string/pref_email"
-	            android:dialogMessage="@string/pref_email_message"   
-	            />
-	
-	<EditTextPreference
-	            android:key="device_name"
-	            android:title="@string/pref_device_name"
-	            android:summary="@string/pref_device_name_summary"
-	            android:dialogTitle="@string/pref_device_name"
-	            android:dialogMessage="@string/pref_device_name_message"
-	            android:dependency="email"   
-	            />
-	
-	<EditTextPreference
-	            android:key="access_key"
-	            android:title="@string/pref_access_key"
-	            android:summary="@string/pref_access_key_summary"
-	            android:dialogTitle="@string/pref_access_key"
-	            android:dialogMessage="@string/pref_access_key_message"
-	            android:password="true"
-	            android:dependency="email"   
-	            />
-	
-	</PreferenceCategory>
 
 	<PreferenceCategory
             android:key="nook_prefs"
@@ -71,45 +40,7 @@
 				/>
 				
 	</PreferenceCategory>
-	
-	<PreferenceCategory
-                android:title="@string/pref_my_books_settings">
-                
-              <CheckBoxPreference
-				android:key="copy_to_library"
-				android:title="@string/pref_copy_to_library"
-				android:summary="@string/pref_copy_to_library_summary"
-				android:defaultValue="true"
-				/>
 
-                <ListPreference
-                    android:key="long_short"
-                    android:title="@string/pref_long_short"
-                    android:summary="@string/pref_long_short_summary"
-                    android:defaultValue="normal"
-                    android:entries="@array/long_short_labels"
-                    android:entryValues="@array/long_short"
-                    />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="@string/opds_settings">
-				
-               <PreferenceScreen        			
-        			android:title="@string/pref_manage_sites"
-        			android:summary="@string/pref_manage_sites_summary">
-        			
-        			<intent android:action="net.nightwhistler.pageturner.activity.ManageSitesActivity"/>
-        			         
-    			</PreferenceScreen>
-
-            <CheckBoxPreference
-                android:key="accept_self_signed"
-                android:title="@string/pref_accept_self_signed"
-                android:summary="@string/pref_accept_self_signed_summary"
-                android:defaultValue="false" />
-                
-    </PreferenceCategory>
 
 	<PreferenceCategory
                 android:key="visual_prefs"

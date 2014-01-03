@@ -24,7 +24,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.*;
-import android.content.DialogInterface.OnClickListener;
 import android.content.pm.ActivityInfo;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
@@ -63,17 +62,12 @@ import net.nightwhistler.pageturner.Configuration.ScrollStyle;
 import net.nightwhistler.pageturner.R;
 import net.nightwhistler.pageturner.TextUtil;
 import net.nightwhistler.pageturner.animation.*;
-import net.nightwhistler.pageturner.library.LibraryService;
-import net.nightwhistler.pageturner.sync.AccessException;
-import net.nightwhistler.pageturner.sync.BookProgress;
-import net.nightwhistler.pageturner.sync.ProgressService;
 import net.nightwhistler.pageturner.tasks.SearchTextTask;
 import net.nightwhistler.pageturner.tts.SpeechCompletedCallback;
 import net.nightwhistler.pageturner.tts.TTSPlaybackItem;
 import net.nightwhistler.pageturner.tts.TTSPlaybackQueue;
 import net.nightwhistler.pageturner.view.AnimatedImageView;
 import net.nightwhistler.pageturner.view.NavGestureDetector;
-import net.nightwhistler.pageturner.view.ProgressListAdapter;
 import net.nightwhistler.pageturner.view.SearchResultAdapter;
 import net.nightwhistler.pageturner.view.bookview.BookView;
 import net.nightwhistler.pageturner.view.bookview.BookViewListener;
@@ -86,7 +80,6 @@ import org.slf4j.LoggerFactory;
 import roboguice.inject.InjectView;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.*;
 
@@ -117,12 +110,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 
 	private static final Logger LOG = LoggerFactory
 			.getLogger("ReadingFragment");
-
-	@Inject
-	private ProgressService progressService;
-
-	@Inject
-	private LibraryService libraryService;
 
 	@Inject
 	private Configuration config;
@@ -447,18 +434,11 @@ public class ReadingFragment extends RoboSherlockFragment implements
 		
 		if ("".equals(fileName) || ! new File(fileName).exists() ) {
 
-			Intent intent = new Intent(getActivity(), LibraryActivity.class);
-			startActivity(intent);
 			getActivity().finish();
 			return;
 
 		} else {
-
-			if (savedInstanceState == null && config.isSyncEnabled()) {
-				new DownloadProgressTask().execute();
-			} else {
-				bookView.restore();
-			}
+    		bookView.restore();
 		}
 
         if ( ttsIsRunning() ) {
@@ -1106,7 +1086,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 		Intent intent = new Intent(getActivity(), ReadingActivity.class);
 		intent.setData(Uri.parse(this.fileName));
 		startActivity(intent);
-		this.libraryService.close();
 		getActivity().finish();
 	}
 
@@ -1146,20 +1125,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 			this.authorField.setText(author.getFirstname() + " "
 					+ author.getLastname());
 		}
-
-		backgroundHandler.post(new Runnable() {
-
-			@Override
-			public void run() {
-
-				try {
-					libraryService.storeBook(fileName, book, true,
-							config.isCopyToLibrayEnabled());
-				} catch (Exception io) {
-					LOG.error("Copy to library failed.", io);
-				}
-			}
-		});
 		
 		updateFromPrefs();
 	}
@@ -1311,7 +1276,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 	@Override
 	public void errorOnBookOpening(String errorMessage) {
 		closeWaitDialog();
-		launchActivity(LibraryActivity.class);
 	}
 
     private ProgressDialog getWaitDialog() {
@@ -2002,7 +1966,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 		bookView.clear();
 
 		updateFileName(null, fileName);
-		new DownloadProgressTask().execute();
 	}
 
 	@Override
@@ -2013,7 +1976,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 		printScreenAndCallState("onStop()");
 
 		closeWaitDialog();
-        libraryService.close();
 	}
 
 	private void saveReadingPosition() {
@@ -2025,8 +1987,7 @@ public class ReadingFragment extends RoboSherlockFragment implements
 			if ( index != -1 && position != -1 ) {			
 				config.setLastPosition(this.fileName, position);
 				config.setLastIndex(this.fileName, index);
-			
-				sendProgressUpdateToServer(index, position);
+
 			}
 		}
 
@@ -2100,15 +2061,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 			this.restartActivity();
 			return true;
 
-		case R.id.manual_sync:
-			if (config.isSyncEnabled()) {
-				new ManualProgressSync().execute();
-			} else {
-				Toast.makeText(getActivity(), R.string.enter_email, Toast.LENGTH_LONG)
-						.show();
-			}
-			return true;
-
 		case R.id.search_text:
 			onSearchRequested();
 			return true;
@@ -2125,14 +2077,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 
 		case R.id.open_file:
 			launchFileManager();
-			return true;
-
-		case R.id.open_library:
-			launchActivity(LibraryActivity.class);
-			return true;
-			
-		case R.id.download:
-			launchActivity(CatalogActivity.class);
 			return true;
 
 		case R.id.rolling_blind:
@@ -2359,19 +2303,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
         }
 	}
 
-	private void showPickProgressDialog(final List<BookProgress> results) {
-
-		AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-		builder.setTitle(getString(R.string.cloud_bm));
-
-		ProgressListAdapter adapter = new ProgressListAdapter(getActivity(), bookView, results);
-		builder.setAdapter(adapter, adapter);
-
-		AlertDialog dialog = builder.create();
-		dialog.setOwnerActivity(getActivity());
-		dialog.show();
-	}
-
 	private void initTocDialog() {
 
 		if (this.tocDialog != null) {
@@ -2411,24 +2342,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
 			outState.putInt(IDX_KEY, this.bookView.getIndex());
 		}
 
-	}
-
-	private void sendProgressUpdateToServer(final int index, final int position) {
-
-        libraryService.updateReadingProgress(fileName, progressPercentage);
-
-		backgroundHandler.post(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					progressService.storeProgress(fileName,
-							index, position,
-							progressPercentage);
-				} catch (Exception e) {
-					LOG.error("Error saving progress", e);
-				}
-			}
-		});
 	}
 
     @Override
@@ -2577,115 +2490,6 @@ public class ReadingFragment extends RoboSherlockFragment implements
             }
         });
 		dialog.show();
-	}
-
-	private class ManualProgressSync extends
-			AsyncTask<Void, Integer, List<BookProgress>> {
-
-		private boolean accessDenied = false;
-
-		@Override
-		protected void onPreExecute() {
-            if ( isAdded() ) {
-			    getWaitDialog().setMessage(getActivity().getString(R.string.syncing));
-			    getWaitDialog().show();
-            }
-		}
-
-		@Override
-		protected List<BookProgress> doInBackground(Void... params) {
-			try {
-				return progressService.getProgress(fileName);
-			} catch (AccessException e) {
-				accessDenied = true;
-				return null;
-			}
-		}
-
-		@Override
-		protected void onPostExecute(List<BookProgress> progress) {
-			closeWaitDialog();
-
-			if (progress == null) {
-
-				AlertDialog.Builder alertDialog = new AlertDialog.Builder(
-						getActivity());
-
-				alertDialog.setTitle(R.string.sync_failed);
-
-				if (accessDenied) {
-					alertDialog.setMessage(R.string.access_denied);
-				} else {
-					alertDialog.setMessage(R.string.connection_fail);
-				}
-
-				alertDialog.setNeutralButton(android.R.string.ok,
-						new OnClickListener() {
-							public void onClick(DialogInterface dialog,
-									int which) {
-								dialog.dismiss();
-							}
-						});
-
-				alertDialog.show();
-
-			} else if ( progress.isEmpty() ) {
-			    Toast.makeText(getActivity().getApplicationContext(), R.string.no_sync_points, Toast.LENGTH_LONG).show();
-			} else {
-                showPickProgressDialog(progress);
-            }
-		}
-	}
-
-	private class DownloadProgressTask extends
-			AsyncTask<Void, Integer, BookProgress> {
-
-		@Override
-		protected void onPreExecute() {
-            if ( isAdded() ) {
-			    ProgressDialog progressDialog = getWaitDialog();
-                progressDialog.setMessage(getActivity().getString( R.string.syncing));
-
-			    progressDialog.show();
-            }
-		}
-
-		@Override
-		protected BookProgress doInBackground(Void... params) {
-			try {
-				List<BookProgress> updates = progressService
-						.getProgress(fileName);
-
-				if (updates != null && updates.size() > 0) {
-					return updates.get(0);
-				}
-			} catch (AccessException e) {
-			}
-
-			return null;
-		}
-
-		@Override
-		protected void onPostExecute(BookProgress progress) {
-			closeWaitDialog();
-
-			int index = bookView.getIndex();
-			int pos = bookView.getProgressPosition();
-
-			if (progress != null) {
-
-				if (progress.getIndex() > index) {
-					bookView.setIndex(progress.getIndex());
-					bookView.setPosition(progress.getProgress());
-				} else if (progress.getIndex() == index) {
-					pos = Math.max(pos, progress.getProgress());
-					bookView.setPosition(pos);
-				}
-
-			}
-
-			bookView.restore();
-		}
 	}
 	
 	private class PageTurnerMediaReceiver extends BroadcastReceiver {
